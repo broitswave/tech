@@ -1,0 +1,83 @@
+local scriptString = [[
+    local targetGravity = 185
+    game:GetService("Workspace").Gravity = targetGravity
+    print("Gravity has been set to " .. targetGravity)
+
+    local Players = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+
+    -- Wait for LocalPlayer
+    local LocalPlayer = Players.LocalPlayer
+    while not LocalPlayer do
+        Players.PlayerAdded:Wait()
+        LocalPlayer = Players.LocalPlayer
+    end
+
+    -- Settings
+    local boostPower = 60
+    local boostCooldown = 0.1
+    local lastBoostTimes = {}
+
+    local boostRequested = false
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+
+        local isKeyboardF = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.F
+        local isGamepadButtonR1 = input.UserInputType == Enum.UserInputType.Gamepad1 and input.KeyCode == Enum.KeyCode.ButtonR1
+        if isKeyboardF or isGamepadButtonR1 then
+            boostRequested = true
+        end
+    end)
+
+    local function onCharacterAdded(character)
+        local rootPart = character:WaitForChild("HumanoidRootPart", 10)
+        if not rootPart then return end
+
+        local function onTouch(otherPart)
+            if not boostRequested then return end
+            boostRequested = false
+
+            local otherCharacter = otherPart.Parent
+            local otherPlayer = Players:GetPlayerFromCharacter(otherCharacter)
+
+            if otherPlayer and otherPlayer ~= LocalPlayer then
+                local head = otherCharacter:FindFirstChild("Head")
+                if head and head.CanCollide then
+                    local lastBoostTime = lastBoostTimes[otherPlayer] or 0
+                    if tick() - lastBoostTime >= boostCooldown then
+                        local humanoid = character:FindFirstChild("Humanoid")
+                        local moveDirection = humanoid and humanoid.MoveDirection or Vector3.new(0, 0, 0)
+
+                        local velocity = Vector3.new(moveDirection.X * 5, boostPower, moveDirection.Z * 5)
+
+                        local bodyVelocity = Instance.new("BodyVelocity")
+                        bodyVelocity.Velocity = velocity
+                        bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                        bodyVelocity.Parent = rootPart
+
+                        task.wait(0.1)
+                        bodyVelocity:Destroy()
+
+                        lastBoostTimes[otherPlayer] = tick()
+                    end
+                end
+            end
+        end
+
+        rootPart.Touched:Connect(onTouch)
+    end
+
+    LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+    if LocalPlayer.Character then
+        onCharacterAdded(LocalPlayer.Character)
+    end
+]]
+
+local func = loadstring(scriptString)
+if func then
+    func()
+else
+    warn("Failed to load script string")
+end
